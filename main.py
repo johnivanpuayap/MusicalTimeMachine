@@ -8,7 +8,6 @@ from spotipy.oauth2 import SpotifyOAuth
 print("Welcome to the Musical Time Machine!")
 
 date = input("Which year do you want to travel to? Type the date in this format YYYY-MM-DD: ")
-date = "2000-08-12"
 year = date.split('-')[0]
 
 count = 1
@@ -17,7 +16,7 @@ songs = {
 }
 
 # Scrape the Billboard TOP 100
-response = requests.get(f"https://www.billboard.com/charts/hot-100/2000-08-12/")
+response = requests.get(f"https://www.billboard.com/charts/hot-100/{date}/")
 soup = BeautifulSoup(response.text, "html.parser")
 
 # Find the first song details
@@ -57,30 +56,26 @@ for artist in artists_container:
     songs[f"{count}"][1] = artist.text.strip()
 
 # Authentication with Spotify
-spotify = spotipy.Spotify(
-    auth_manager=SpotifyOAuth(
-        scope="playlist-modify-private",
-        redirect_uri="http://example.com",
-        client_id=os.environ['SPOTIFY_CLIENT_ID'],
-        client_secret=os.environ['SPOTIFY_CLIENT_SECRET'],
-        show_dialog=True,
-        cache_path="token.txt"
-    )
-)
+spotify = spotipy.Spotify(auth_manager=SpotifyOAuth(scope="user-library-read playlist-modify-private",
+                                                    redirect_uri="http://example.com",
+                                                    client_id=os.environ['SPOTIFY_CLIENT_ID'],
+                                                    client_secret=os.environ['SPOTIFY_CLIENT_SECRET'],
+                                                    show_dialog=False,
+                                                    cache_path="token.txt"))
 user_id = spotify.current_user()["id"]
-print(user_id)
 
 # Search Spotify for the Songs
-songs_uri = []
+song_uris = []
 for key, value in songs.items():
     result = spotify.search(q=f"track: {value[0]} year: {year}", type='track', market='PH')
-
     try:
         uri = result["tracks"]["items"][0]["uri"]
-        songs_uri.append(uri)
+        song_uris.append(uri)
     except IndexError:
         print(f"v{value[0]} doesn't exist in Spotify. Skipped")
 
 # Creating the Playlists on Spotify
+playlist = spotify.user_playlist_create(user=user_id, name=f"{date} Billboard 100", public=False)
 
 # Adding Songs to the Playlist
+spotify.playlist_add_items(playlist_id=playlist['id'], items=song_uris)
