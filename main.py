@@ -3,12 +3,13 @@ from pprint import pprint
 from bs4 import BeautifulSoup
 import requests
 import spotipy
-from spotipy.oauth2 import SpotifyAuthBase
+from spotipy.oauth2 import SpotifyOAuth
 
 print("Welcome to the Musical Time Machine!")
 
 date = input("Which year do you want to travel to? Type the date in this format YYYY-MM-DD: ")
-date = ""
+date = "2000-08-12"
+year = date.split('-')[0]
 
 count = 1
 songs = {
@@ -26,14 +27,19 @@ top_song_container = soup.find(name="h3",
 top_song = top_song_container.findChild().text.strip()
 
 top_song_artist_container = soup.find(name="p",
-                                      class_="c-tagline a-font-primary-l a-font-primary-m@mobile-max lrv-u-color-black u-color-white@mobile-max lrv-u-margin-tb-00 lrv-u-padding-t-025 lrv-u-margin-r-150")
+                                      class_="c-tagline a-font-primary-l a-font-primary-m@mobile-max "
+                                             "lrv-u-color-black u-color-white@mobile-max lrv-u-margin-tb-00 "
+                                             "lrv-u-padding-t-025 lrv-u-margin-r-150")
 top_song_artist = top_song_artist_container.text
 
 songs[f"{count}"] = [top_song, top_song_artist]
 
 # Add the rest of the songs
 songs_container = soup.find_all(name="h3",
-                                class_="c-title a-no-trucate a-font-primary-bold-s u-letter-spacing-0021 lrv-u-font-size-18@tablet lrv-u-font-size-16 u-line-height-125 u-line-height-normal@mobile-max a-truncate-ellipsis u-max-width-330 u-max-width-230@tablet-only")
+                                class_="c-title a-no-trucate a-font-primary-bold-s u-letter-spacing-0021 "
+                                       "lrv-u-font-size-18@tablet lrv-u-font-size-16 u-line-height-125 "
+                                       "u-line-height-normal@mobile-max a-truncate-ellipsis u-max-width-330 "
+                                       "u-max-width-230@tablet-only")
 for song in songs_container:
     count += 1
     songs[f"{count}"] = ["", ""]
@@ -41,33 +47,40 @@ for song in songs_container:
 
 # Add the rest of the song artists
 artists_container = soup.find_all(name="span",
-                                  class_="c-label a-no-trucate a-font-primary-s lrv-u-font-size-14@mobile-max u-line-height-normal@mobile-max u-letter-spacing-0021 lrv-u-display-block a-truncate-ellipsis-2line u-max-width-330 u-max-width-230@tablet-only")
+                                  class_="c-label a-no-trucate a-font-primary-s lrv-u-font-size-14@mobile-max "
+                                         "u-line-height-normal@mobile-max u-letter-spacing-0021 lrv-u-display-block "
+                                         "a-truncate-ellipsis-2line u-max-width-330 u-max-width-230@tablet-only")
 count = 1
 
 for artist in artists_container:
     count += 1
     songs[f"{count}"][1] = artist.text.strip()
 
-pprint(songs)
-# Search Spotify for the Songs
-SPOTIFY_CLIENT_ID = os.environ['SPOTIFY_CLIENT_ID']
-SPOTIFY_CLIENT_SECRET = os.environ['SPOTIFY_CLIENT_SECRET']
-
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-
-sp = spotipy.Spotify(
+# Authentication with Spotify
+spotify = spotipy.Spotify(
     auth_manager=SpotifyOAuth(
         scope="playlist-modify-private",
         redirect_uri="http://example.com",
-        client_id=SPOTIFY_CLIENT_ID,
-        client_secret=SPOTIFY_CLIENT_SECRET,
+        client_id=os.environ['SPOTIFY_CLIENT_ID'],
+        client_secret=os.environ['SPOTIFY_CLIENT_SECRET'],
         show_dialog=True,
         cache_path="token.txt"
     )
 )
-user_id = sp.current_user()["id"]
+user_id = spotify.current_user()["id"]
 print(user_id)
+
+# Search Spotify for the Songs
+songs_uri = []
+for key, value in songs.items():
+    result = spotify.search(q=f"track: {value[0]} year: {year}", type='track', market='PH')
+
+    try:
+        uri = result["tracks"]["items"][0]["uri"]
+        songs_uri.append(uri)
+    except IndexError:
+        print(f"v{value[0]} doesn't exist in Spotify. Skipped")
+
 # Creating the Playlists on Spotify
 
 # Adding Songs to the Playlist
